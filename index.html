@@ -1,0 +1,343 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Save, History, ChevronRight, X, User } from 'lucide-react';
+
+// カードの定義
+const RANKS = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'];
+const SUITS = [
+  { symbol: '♠', color: 'text-gray-200', name: 's' },
+  { symbol: '♥', color: 'text-red-500', name: 'h' },
+  { symbol: '♦', color: 'text-blue-400', name: 'd' }, // 4色デッキ仕様で見やすく（ダイヤは青）
+  { symbol: '♣', color: 'text-green-500', name: 'c' }  // クラブは緑
+];
+
+const POSITIONS_6MAX = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+
+export default function PokerRecorder() {
+  const [view, setView] = useState('input'); // input | history
+  const [hands, setHands] = useState([]);
+  
+  // 現在入力中のハンドデータ
+  const [currentHand, setCurrentHand] = useState({
+    id: null,
+    timestamp: null,
+    heroPos: 'BTN',
+    holeCards: [null, null], // [Card, Card]
+    board: [null, null, null, null, null], // [F1, F2, F3, T, R]
+    action: 'Open', // 簡易アクションタグ
+    potSize: '', // 簡易入力
+  });
+
+  const [activeCardIndex, setActiveCardIndex] = useState(null); // カード入力モーダル用 (0-1: Hole, 2-6: Board)
+  const [tempRank, setTempRank] = useState(null);
+
+  // --- ヘルパー関数 ---
+
+  const getCardDisplay = (card) => {
+    if (!card) return <span className="text-gray-600">?</span>;
+    const suitObj = SUITS.find(s => s.name === card.suit);
+    return (
+      <span className={`font-bold ${suitObj?.color || 'text-white'}`}>
+        {card.rank}{suitObj?.symbol}
+      </span>
+    );
+  };
+
+  const handleCardSelect = (rank, suit) => {
+    const newCard = { rank, suit: suit.name };
+    
+    if (activeCardIndex !== null) {
+      if (activeCardIndex < 2) {
+        // Hole Cards
+        const newHole = [...currentHand.holeCards];
+        newHole[activeCardIndex] = newCard;
+        setCurrentHand({ ...currentHand, holeCards: newHole });
+        // 自動で次のカードへフォーカス移動（UX向上）
+        if (activeCardIndex === 0) setActiveCardIndex(1);
+        else setActiveCardIndex(null);
+      } else {
+        // Board Cards
+        const newBoard = [...currentHand.board];
+        newBoard[activeCardIndex - 2] = newCard;
+        setCurrentHand({ ...currentHand, board: newBoard });
+        // ボードも自動送り
+        if (activeCardIndex - 2 < 4) setActiveCardIndex(activeCardIndex + 1);
+        else setActiveCardIndex(null);
+      }
+    }
+    setTempRank(null);
+  };
+
+  const saveHand = () => {
+    const newHand = {
+      ...currentHand,
+      id: Date.now(),
+      timestamp: new Date().toLocaleString(),
+    };
+    setHands([newHand, ...hands]);
+    resetHand();
+    setView('history');
+  };
+
+  const resetHand = () => {
+    setCurrentHand({
+      id: null,
+      timestamp: null,
+      heroPos: 'BTN',
+      holeCards: [null, null],
+      board: [null, null, null, null, null],
+      action: 'Open',
+      potSize: '',
+    });
+    setActiveCardIndex(null);
+    setTempRank(null);
+  };
+
+  // --- コンポーネント ---
+
+  // カード入力キーボード（モーダル）
+  const CardInputModal = () => {
+    if (activeCardIndex === null) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center animate-in slide-in-from-bottom-10 fade-in duration-200">
+        <div className="bg-slate-900 w-full max-w-md p-4 rounded-t-2xl border-t border-slate-700">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-white font-bold text-lg">
+              {activeCardIndex < 2 ? `Hand Card #${activeCardIndex + 1}` : `Board Card #${activeCardIndex - 1}`}
+            </h3>
+            <button onClick={() => setActiveCardIndex(null)} className="p-2 bg-slate-800 rounded-full">
+              <X className="w-6 h-6 text-gray-400" />
+            </button>
+          </div>
+
+          {!tempRank ? (
+            <div className="grid grid-cols-4 gap-2 mb-2">
+              {RANKS.map(r => (
+                <button
+                  key={r}
+                  onClick={() => setTempRank(r)}
+                  className="h-14 bg-slate-800 hover:bg-indigo-600 text-white font-bold text-xl rounded-lg active:scale-95 transition-transform"
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-4 py-8">
+              {SUITS.map(s => (
+                <button
+                  key={s.name}
+                  onClick={() => handleCardSelect(tempRank, s)}
+                  className="h-24 bg-slate-800 hover:bg-slate-700 rounded-xl flex flex-col items-center justify-center active:scale-95 transition-transform border border-slate-700"
+                >
+                  <span className={`text-5xl ${s.color}`}>{s.symbol}</span>
+                  <span className="text-white font-bold mt-2">{tempRank}</span>
+                </button>
+              ))}
+              <button 
+                onClick={() => setTempRank(null)}
+                className="col-span-4 mt-2 py-3 text-slate-400 text-sm"
+              >
+                ランク選択に戻る
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // 座席選択UI (簡易6max)
+  const PositionSelector = () => {
+    return (
+      <div className="flex justify-between bg-slate-800 p-2 rounded-xl mb-4 overflow-x-auto gap-2 no-scrollbar">
+        {POSITIONS_6MAX.map(pos => (
+          <button
+            key={pos}
+            onClick={() => setCurrentHand({ ...currentHand, heroPos: pos })}
+            className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm min-w-[50px] transition-colors
+              ${currentHand.heroPos === pos 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
+                : 'bg-slate-700 text-gray-400'}`}
+          >
+            {pos}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30">
+      <div className="max-w-md mx-auto min-h-screen flex flex-col relative">
+        
+        {/* Header */}
+        <header className="p-4 flex justify-between items-center border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+            Flash Recorder
+          </h1>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setView(view === 'input' ? 'history' : 'input')}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+            >
+              {view === 'input' ? <History size={20} /> : <Plus size={20} />}
+            </button>
+          </div>
+        </header>
+
+        {view === 'input' ? (
+          <main className="flex-1 p-4 flex flex-col gap-6">
+            
+            {/* 1. Position */}
+            <section>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Hero Position</label>
+              <PositionSelector />
+            </section>
+
+            {/* 2. Hole Cards */}
+            <section>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Hole Cards</label>
+              <div className="flex gap-3">
+                {[0, 1].map(i => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveCardIndex(i)}
+                    className={`flex-1 aspect-[2/3] max-w-[100px] rounded-xl border-2 flex items-center justify-center text-3xl shadow-lg transition-all
+                      ${currentHand.holeCards[i] 
+                        ? 'bg-slate-800 border-indigo-500/50' 
+                        : 'bg-slate-900 border-slate-700 border-dashed text-slate-700'}`}
+                  >
+                    {getCardDisplay(currentHand.holeCards[i])}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* 3. Board */}
+            <section>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Board (Flop / Turn / River)</label>
+              <div className="flex gap-2">
+                {/* Flop */}
+                {[0, 1, 2].map(i => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveCardIndex(i + 2)}
+                    className={`flex-1 aspect-[2/3] rounded-lg border flex items-center justify-center text-xl shadow-md transition-all
+                      ${currentHand.board[i] 
+                        ? 'bg-slate-800 border-indigo-500/30' 
+                        : 'bg-slate-900 border-slate-800 text-slate-700'}`}
+                  >
+                    {getCardDisplay(currentHand.board[i])}
+                  </button>
+                ))}
+                {/* Divider */}
+                <div className="w-px bg-slate-800 mx-1"></div>
+                {/* Turn/River */}
+                {[3, 4].map(i => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveCardIndex(i + 2)}
+                    className={`flex-1 aspect-[2/3] rounded-lg border flex items-center justify-center text-xl shadow-md transition-all
+                      ${currentHand.board[i] 
+                        ? 'bg-slate-800 border-indigo-500/30' 
+                        : 'bg-slate-900 border-slate-800 text-slate-700'}`}
+                  >
+                    {getCardDisplay(currentHand.board[i])}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* 4. Action Tag (Simple) */}
+            <section>
+               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Quick Action Note</label>
+               <div className="grid grid-cols-3 gap-2">
+                 {['RFI', '3Bet Pot', 'Call 3B', 'Multiway', 'Squeezed', 'Bluff'].map(tag => (
+                   <button
+                    key={tag}
+                    onClick={() => setCurrentHand({...currentHand, action: tag})}
+                    className={`py-2 px-1 rounded text-sm font-medium border transition-colors
+                      ${currentHand.action === tag 
+                        ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400' 
+                        : 'bg-slate-800 border-transparent text-slate-400 hover:bg-slate-700'}`}
+                   >
+                     {tag}
+                   </button>
+                 ))}
+               </div>
+            </section>
+
+            {/* Save Button Area */}
+            <div className="mt-auto pt-6">
+              <button
+                onClick={saveHand}
+                disabled={!currentHand.holeCards[0] && !currentHand.holeCards[1]}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              >
+                <Save size={20} />
+                ハンドを記録
+              </button>
+              <button 
+                onClick={resetHand}
+                className="w-full mt-3 py-3 text-slate-500 hover:text-red-400 text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} /> クリア
+              </button>
+            </div>
+
+          </main>
+        ) : (
+          /* History View */
+          <main className="flex-1 p-4 overflow-y-auto">
+             {hands.length === 0 ? (
+               <div className="text-center text-slate-600 mt-20 flex flex-col items-center">
+                 <History size={48} className="mb-4 opacity-50" />
+                 <p>記録されたハンドはありません</p>
+               </div>
+             ) : (
+               <div className="space-y-3">
+                 {hands.map(hand => (
+                   <div key={hand.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center gap-3">
+                     <div className="flex flex-col items-center min-w-[40px]">
+                        <span className="text-xs font-bold text-slate-500">HERO</span>
+                        <span className="font-bold text-indigo-400">{hand.heroPos}</span>
+                     </div>
+                     
+                     <div className="h-8 w-px bg-slate-800"></div>
+
+                     <div className="flex-1">
+                       <div className="flex gap-1 mb-1">
+                         <span className="bg-slate-800 px-1.5 py-0.5 rounded text-lg font-bold border border-slate-700">{getCardDisplay(hand.holeCards[0])}</span>
+                         <span className="bg-slate-800 px-1.5 py-0.5 rounded text-lg font-bold border border-slate-700">{getCardDisplay(hand.holeCards[1])}</span>
+                       </div>
+                       <div className="flex gap-1 items-center">
+                          {hand.board.filter(c => c).length > 0 ? (
+                             hand.board.filter(c => c).map((c, i) => (
+                               <span key={i} className="text-sm bg-slate-950 px-1 rounded">{getCardDisplay(c)}</span>
+                             ))
+                          ) : (
+                            <span className="text-xs text-slate-600">No Flop</span>
+                          )}
+                       </div>
+                     </div>
+
+                     <div className="text-right">
+                       <span className="block text-xs text-emerald-400 font-medium px-2 py-1 bg-emerald-950/30 rounded border border-emerald-900/50 mb-1">
+                         {hand.action}
+                       </span>
+                       <span className="text-[10px] text-slate-500">{hand.timestamp.split(' ')[1]}</span>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
+          </main>
+        )}
+
+        {/* Modal Layer */}
+        <CardInputModal />
+      </div>
+    </div>
+  );
+}
