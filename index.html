@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Poker Flash Recorder</title>
+    <title>Poker Flash Recorder 2</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -45,7 +45,7 @@
 <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // --- アイコンコンポーネント (Lucide代替) ---
+    // --- アイコンコンポーネント ---
     const Icon = ({ children, size = 24, className = "" }) => (
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -80,6 +80,7 @@
         { symbol: '♣', color: 'text-green-500', name: 'c' } 
     ];
     const POSITIONS_6MAX = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+    const STREET_ACTIONS = ['Check', 'Bet', 'Call', 'Raise', 'Fold'];
 
     // --- メインアプリ ---
     function App() {
@@ -92,7 +93,10 @@
             heroPos: 'BTN',
             holeCards: [null, null],
             board: [null, null, null, null, null],
-            action: 'Open',
+            action: 'Open', // Preflop/Situation
+            flopAction: null,
+            turnAction: null,
+            riverAction: null,
         });
 
         const [activeCardIndex, setActiveCardIndex] = useState(null);
@@ -100,7 +104,7 @@
 
         // localStorageから読み込み
         useEffect(() => {
-            const savedHands = localStorage.getItem('poker_hands');
+            const savedHands = localStorage.getItem('poker_hands_v2');
             if (savedHands) {
                 setHands(JSON.parse(savedHands));
             }
@@ -108,7 +112,7 @@
 
         // hands更新時にlocalStorageへ保存
         useEffect(() => {
-            localStorage.setItem('poker_hands', JSON.stringify(hands));
+            localStorage.setItem('poker_hands_v2', JSON.stringify(hands));
         }, [hands]);
 
         const getCardDisplay = (card) => {
@@ -135,6 +139,7 @@
                     const newBoard = [...currentHand.board];
                     newBoard[activeCardIndex - 2] = newCard;
                     setCurrentHand({ ...currentHand, board: newBoard });
+                    // Board index 0-2 (Flop), 3 (Turn), 4 (River)
                     if (activeCardIndex - 2 < 4) setActiveCardIndex(activeCardIndex + 1);
                     else setActiveCardIndex(null);
                 }
@@ -161,6 +166,9 @@
                 holeCards: [null, null],
                 board: [null, null, null, null, null],
                 action: 'Open',
+                flopAction: null,
+                turnAction: null,
+                riverAction: null,
             });
             setActiveCardIndex(null);
             setTempRank(null);
@@ -172,6 +180,24 @@
             }
         };
 
+        // --- コンポーネント: ストリートアクションセレクター ---
+        const ActionSelector = ({ value, onChange }) => (
+            <div className="flex gap-1 mt-2 overflow-x-auto no-scrollbar">
+                {STREET_ACTIONS.map(act => (
+                    <button
+                        key={act}
+                        onClick={() => onChange(value === act ? null : act)}
+                        className={`flex-1 py-2 px-2 text-xs font-bold rounded border transition-colors whitespace-nowrap
+                            ${value === act 
+                                ? 'bg-indigo-600 border-indigo-500 text-white' 
+                                : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                    >
+                        {act}
+                    </button>
+                ))}
+            </div>
+        );
+
         // --- モーダルコンポーネント ---
         const CardInputModal = () => {
             if (activeCardIndex === null) return null;
@@ -181,7 +207,7 @@
                     <div className="bg-slate-900 w-full max-w-md p-4 rounded-t-2xl border-t border-slate-700 pb-8 animate-[slideUp_0.2s_ease-out]">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-white font-bold text-lg">
-                                {activeCardIndex < 2 ? `Hand Card #${activeCardIndex + 1}` : `Board Card #${activeCardIndex - 1}`}
+                                {activeCardIndex < 2 ? `Hole Card #${activeCardIndex + 1}` : `Board Card #${activeCardIndex - 1}`}
                             </h3>
                             <button onClick={() => setActiveCardIndex(null)} className="p-2 bg-slate-800 rounded-full active:bg-slate-700">
                                 <Icons.X className="text-gray-400" />
@@ -248,7 +274,7 @@
                     
                     <header className="p-4 flex justify-between items-center border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10 flex-shrink-0">
                         <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent pointer-events-none">
-                            Flash Recorder
+                            Poker Speed Recorder 2
                         </h1>
                         <div className="flex gap-2">
                             <button 
@@ -261,21 +287,21 @@
                     </header>
 
                     {view === 'input' ? (
-                        <main className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto pb-safe">
+                        <main className="flex-1 p-4 flex flex-col gap-5 overflow-y-auto pb-safe">
                             
+                            {/* PREFLOP */}
                             <section>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Hero Position</label>
+                                <div className="flex justify-between items-baseline mb-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Preflop / Position</label>
+                                </div>
                                 <PositionSelector />
-                            </section>
-
-                            <section>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Hole Cards</label>
-                                <div className="flex gap-3">
+                                
+                                <div className="flex gap-2 mb-3">
                                     {[0, 1].map(i => (
                                         <button
                                             key={i}
                                             onClick={() => setActiveCardIndex(i)}
-                                            className={`flex-1 aspect-[2/3] max-w-[100px] rounded-xl border-2 flex items-center justify-center text-3xl shadow-lg transition-all active:scale-95
+                                            className={`flex-1 aspect-[2/3] max-w-[80px] rounded-xl border-2 flex items-center justify-center text-3xl shadow-lg transition-all active:scale-95
                                                 ${currentHand.holeCards[i] 
                                                     ? 'bg-slate-800 border-indigo-500/50' 
                                                     : 'bg-slate-900 border-slate-700 border-dashed text-slate-700'}`}
@@ -283,17 +309,35 @@
                                             {getCardDisplay(currentHand.holeCards[i])}
                                         </button>
                                     ))}
+                                    {/* Preflop Action Tags (既存) */}
+                                    <div className="flex-1 grid grid-cols-2 gap-1.5 content-start">
+                                        {['RFI', '3Bet', 'Call', 'Sqz'].map(tag => (
+                                            <button
+                                                key={tag}
+                                                onClick={() => setCurrentHand({...currentHand, action: tag})}
+                                                className={`py-1 rounded text-xs font-bold border transition-all
+                                                    ${currentHand.action === tag 
+                                                        ? 'bg-emerald-900/40 border-emerald-500/50 text-emerald-400' 
+                                                        : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+                                            >
+                                                {tag}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </section>
+                            
+                            <hr className="border-slate-800" />
 
+                            {/* FLOP */}
                             <section>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Board (Flop / Turn / River)</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Flop</label>
                                 <div className="flex gap-2">
                                     {[0, 1, 2].map(i => (
                                         <button
                                             key={i}
                                             onClick={() => setActiveCardIndex(i + 2)}
-                                            className={`flex-1 aspect-[2/3] rounded-lg border flex items-center justify-center text-xl shadow-md transition-all active:scale-95
+                                            className={`flex-1 aspect-[2/3] max-w-[70px] rounded-lg border flex items-center justify-center text-xl shadow-md transition-all active:scale-95
                                                 ${currentHand.board[i] 
                                                     ? 'bg-slate-800 border-indigo-500/30' 
                                                     : 'bg-slate-900 border-slate-800 text-slate-700'}`}
@@ -301,37 +345,57 @@
                                             {getCardDisplay(currentHand.board[i])}
                                         </button>
                                     ))}
-                                    <div className="w-px bg-slate-800 mx-1"></div>
-                                    {[3, 4].map(i => (
-                                        <button
-                                            key={i}
-                                            onClick={() => setActiveCardIndex(i + 2)}
-                                            className={`flex-1 aspect-[2/3] rounded-lg border flex items-center justify-center text-xl shadow-md transition-all active:scale-95
-                                                ${currentHand.board[i] 
-                                                    ? 'bg-slate-800 border-indigo-500/30' 
-                                                    : 'bg-slate-900 border-slate-800 text-slate-700'}`}
-                                        >
-                                            {getCardDisplay(currentHand.board[i])}
-                                        </button>
-                                    ))}
+                                    <div className="flex-1 flex items-end">
+                                        {/* スペース調整用 */}
+                                    </div>
+                                </div>
+                                <ActionSelector 
+                                    value={currentHand.flopAction} 
+                                    onChange={(v) => setCurrentHand({...currentHand, flopAction: v})} 
+                                />
+                            </section>
+
+                            {/* TURN */}
+                            <section>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Turn</label>
+                                <div className="flex gap-2 items-center">
+                                    <button
+                                        onClick={() => setActiveCardIndex(5)}
+                                        className={`w-[70px] aspect-[2/3] rounded-lg border flex items-center justify-center text-xl shadow-md transition-all active:scale-95
+                                            ${currentHand.board[3] 
+                                                ? 'bg-slate-800 border-indigo-500/30' 
+                                                : 'bg-slate-900 border-slate-800 text-slate-700'}`}
+                                    >
+                                        {getCardDisplay(currentHand.board[3])}
+                                    </button>
+                                    <div className="flex-1">
+                                         <ActionSelector 
+                                            value={currentHand.turnAction} 
+                                            onChange={(v) => setCurrentHand({...currentHand, turnAction: v})} 
+                                        />
+                                    </div>
                                 </div>
                             </section>
 
+                            {/* RIVER */}
                             <section>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Quick Action Note</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {['RFI', '3Bet Pot', 'Call 3B', 'Multiway', 'Squeezed', 'Bluff'].map(tag => (
-                                        <button
-                                            key={tag}
-                                            onClick={() => setCurrentHand({...currentHand, action: tag})}
-                                            className={`py-3 px-1 rounded-lg text-sm font-bold border transition-all active:scale-95
-                                                ${currentHand.action === tag 
-                                                    ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400' 
-                                                    : 'bg-slate-800 border-transparent text-slate-400 hover:bg-slate-700'}`}
-                                        >
-                                            {tag}
-                                        </button>
-                                    ))}
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">River</label>
+                                <div className="flex gap-2 items-center">
+                                    <button
+                                        onClick={() => setActiveCardIndex(6)}
+                                        className={`w-[70px] aspect-[2/3] rounded-lg border flex items-center justify-center text-xl shadow-md transition-all active:scale-95
+                                            ${currentHand.board[4] 
+                                                ? 'bg-slate-800 border-indigo-500/30' 
+                                                : 'bg-slate-900 border-slate-800 text-slate-700'}`}
+                                    >
+                                        {getCardDisplay(currentHand.board[4])}
+                                    </button>
+                                    <div className="flex-1">
+                                         <ActionSelector 
+                                            value={currentHand.riverAction} 
+                                            onChange={(v) => setCurrentHand({...currentHand, riverAction: v})} 
+                                        />
+                                    </div>
                                 </div>
                             </section>
 
@@ -363,34 +427,54 @@
                             ) : (
                                 <div className="space-y-3 pb-20">
                                     {hands.map(hand => (
-                                        <div key={hand.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center gap-3">
-                                            <div className="flex flex-col items-center min-w-[40px]">
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Hero</span>
-                                                <span className="font-bold text-indigo-400">{hand.heroPos}</span>
-                                            </div>
-                                            
-                                            <div className="h-8 w-px bg-slate-800"></div>
-
-                                            <div className="flex-1 overflow-hidden">
-                                                <div className="flex gap-1 mb-1">
-                                                    <span className="bg-slate-800 px-1.5 py-0.5 rounded text-lg font-bold border border-slate-700 min-w-[36px] text-center">{getCardDisplay(hand.holeCards[0])}</span>
-                                                    <span className="bg-slate-800 px-1.5 py-0.5 rounded text-lg font-bold border border-slate-700 min-w-[36px] text-center">{getCardDisplay(hand.holeCards[1])}</span>
+                                        <div key={hand.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl">
+                                            {/* Header: Pos & Preflop */}
+                                            <div className="flex items-center gap-3 mb-2 border-b border-slate-800 pb-2">
+                                                <span className="text-xs font-bold text-indigo-400 bg-indigo-950/50 px-2 py-0.5 rounded">{hand.heroPos}</span>
+                                                <div className="flex gap-1">
+                                                    <span className="text-sm font-bold">{getCardDisplay(hand.holeCards[0])}</span>
+                                                    <span className="text-sm font-bold">{getCardDisplay(hand.holeCards[1])}</span>
                                                 </div>
-                                                <div className="flex gap-1 items-center overflow-x-auto no-scrollbar">
-                                                    {hand.board.filter(c => c).length > 0 ? (
-                                                        hand.board.filter(c => c).map((c, i) => (
-                                                            <span key={i} className="text-sm bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800/50">{getCardDisplay(c)}</span>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-xs text-slate-600 pl-1">No Flop</span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="text-right flex flex-col items-end gap-1">
-                                                <span className="inline-block text-[10px] text-emerald-400 font-bold px-2 py-0.5 bg-emerald-950/30 rounded border border-emerald-900/50 whitespace-nowrap">
+                                                <span className="ml-auto text-xs text-emerald-400 font-bold px-2 py-0.5 bg-emerald-950/30 rounded border border-emerald-900/50">
                                                     {hand.action}
                                                 </span>
+                                            </div>
+
+                                            {/* Body: Streets */}
+                                            <div className="space-y-1">
+                                                {/* Flop */}
+                                                {(hand.board[0] || hand.flopAction) && (
+                                                    <div className="flex items-center text-sm">
+                                                        <span className="w-8 text-[10px] text-slate-500 uppercase">Flop</span>
+                                                        <div className="flex gap-1 mr-2">
+                                                            {hand.board.slice(0, 3).map((c, i) => c ? <span key={i} className="bg-slate-950 px-1 rounded">{getCardDisplay(c)}</span> : null)}
+                                                        </div>
+                                                        {hand.flopAction && <span className="text-xs text-slate-300 bg-slate-800 px-1.5 rounded">{hand.flopAction}</span>}
+                                                    </div>
+                                                )}
+                                                {/* Turn */}
+                                                {(hand.board[3] || hand.turnAction) && (
+                                                    <div className="flex items-center text-sm">
+                                                        <span className="w-8 text-[10px] text-slate-500 uppercase">Turn</span>
+                                                        <div className="flex gap-1 mr-2">
+                                                            {hand.board[3] && <span className="bg-slate-950 px-1 rounded">{getCardDisplay(hand.board[3])}</span>}
+                                                        </div>
+                                                        {hand.turnAction && <span className="text-xs text-slate-300 bg-slate-800 px-1.5 rounded">{hand.turnAction}</span>}
+                                                    </div>
+                                                )}
+                                                {/* River */}
+                                                {(hand.board[4] || hand.riverAction) && (
+                                                    <div className="flex items-center text-sm">
+                                                        <span className="w-8 text-[10px] text-slate-500 uppercase">River</span>
+                                                        <div className="flex gap-1 mr-2">
+                                                            {hand.board[4] && <span className="bg-slate-950 px-1 rounded">{getCardDisplay(hand.board[4])}</span>}
+                                                        </div>
+                                                        {hand.riverAction && <span className="text-xs text-slate-300 bg-slate-800 px-1.5 rounded">{hand.riverAction}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="text-right mt-1">
                                                 <span className="text-[10px] text-slate-600 font-mono">{hand.timestamp.split(' ')[1].slice(0, 5)}</span>
                                             </div>
                                         </div>
