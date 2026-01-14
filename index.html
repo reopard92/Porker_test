@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Poker Recorder 6 - Multiway</title>
+    <title>Poker Recorder 7 - Japanese</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,10 +17,11 @@
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
             background-color: #0f172a;
             color: #f1f5f9;
             overscroll-behavior: none;
@@ -40,12 +41,6 @@
         }
         .card-shadow {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
-        }
-        /* アクティブなタブのハイライト */
-        .tab-active {
-            background-color: rgba(220, 38, 38, 0.9); /* red-600 */
-            color: white;
-            border-bottom: 2px solid #fecaca;
         }
     </style>
 </head>
@@ -81,8 +76,24 @@
     ];
     const POSITIONS = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
     
-    const PREFLOP_ACTIONS = ['RFI', 'Call', '3Bet', 'Limp', 'Fold', 'Walk'];
-    const POSTFLOP_ACTIONS = ['Check', 'Bet S', 'Bet L', 'Raise', 'All-in', 'Fold'];
+    // 表示用ラベルと保存値を分離、またはそのまま日本語を使用
+    // ここではシンプルに表示用として日本語を使用
+    const PREFLOP_ACTIONS = [
+        { id: 'RFI', label: 'RFI' },
+        { id: 'Call', label: 'コール' },
+        { id: '3Bet', label: '3Bet' },
+        { id: 'Limp', label: 'リンプ' },
+        { id: 'Fold', label: 'フォールド' },
+        { id: 'Walk', label: 'ウォーク' }
+    ];
+    const POSTFLOP_ACTIONS = [
+        { id: 'Check', label: 'チェック' },
+        { id: 'Bet S', label: 'ベット小' },
+        { id: 'Bet L', label: 'ベット大' },
+        { id: 'Raise', label: 'レイズ' },
+        { id: 'All-in', label: 'オールイン' },
+        { id: 'Fold', label: 'フォールド' }
+    ];
 
     // --- Main App ---
     function App() {
@@ -90,42 +101,33 @@
         const [hands, setHands] = useState([]);
         const [gameStage, setGameStage] = useState('pre'); // pre, flop, turn, river, showdown
         
-        // Active Villain Tab Index
         const [activeVillainIdx, setActiveVillainIdx] = useState(0);
 
-        // State Structure
         const [currentHand, setCurrentHand] = useState({
             id: null,
             timestamp: null,
-            // Hero
             heroPos: 'BTN',
             heroHoleCards: [null, null],
             heroActions: { pre: null, flop: null, turn: null, river: null },
-            
-            // Villains Array (Multi-way support)
             villains: [
                 { id: 1, pos: 'BB', holeCards: [null, null], actions: { pre: null, flop: null, turn: null, river: null } }
             ],
-
-            // Board
             board: [null, null, null, null, null],
         });
 
         const [activeCardTarget, setActiveCardTarget] = useState(null); 
         const [tempRank, setTempRank] = useState(null);
 
-        // Load/Save
         useEffect(() => {
-            const saved = localStorage.getItem('poker_hands_v6');
+            const saved = localStorage.getItem('poker_hands_v7');
             if (saved) setHands(JSON.parse(saved));
         }, []);
 
         useEffect(() => {
-            localStorage.setItem('poker_hands_v6', JSON.stringify(hands));
+            localStorage.setItem('poker_hands_v7', JSON.stringify(hands));
         }, [hands]);
 
         // --- Logic ---
-        
         const addVillain = () => {
             setCurrentHand(prev => ({
                 ...prev,
@@ -139,7 +141,6 @@
                     }
                 ]
             }));
-            // Switch to new villain
             setActiveVillainIdx(currentHand.villains.length);
         };
 
@@ -149,11 +150,10 @@
             setCurrentHand(prev => ({ ...prev, villains: newVillains }));
         };
 
-        const updateVillainAction = (index, stage, action) => {
+        const updateVillainAction = (index, stage, actionId) => {
             const newVillains = [...currentHand.villains];
             const currentAction = newVillains[index].actions[stage];
-            // Toggle action
-            const newAction = currentAction === action ? null : action;
+            const newAction = currentAction === actionId ? null : actionId;
             
             newVillains[index] = { 
                 ...newVillains[index], 
@@ -162,9 +162,9 @@
             setCurrentHand(prev => ({ ...prev, villains: newVillains }));
         };
 
-        const updateHeroAction = (stage, action) => {
+        const updateHeroAction = (stage, actionId) => {
             const currentAction = currentHand.heroActions[stage];
-            const newAction = currentAction === action ? null : action;
+            const newAction = currentAction === actionId ? null : actionId;
             setCurrentHand(prev => ({
                 ...prev,
                 heroActions: { ...prev.heroActions, [stage]: newAction }
@@ -191,7 +191,6 @@
             } else if (type === 'board') {
                 const arr = [...currentHand.board]; arr[index] = newCard;
                 setCurrentHand(prev => ({ ...prev, board: arr }));
-                // Auto advance
                 if (gameStage === 'flop' && index < 2) setActiveCardTarget({ type: 'board', index: index + 1 });
                 else setActiveCardTarget(null);
             }
@@ -229,7 +228,8 @@
             };
             setHands([newHand, ...hands]);
             resetHand();
-            alert("Recorded!");
+            // alert("保存しました！"); 
+            // UX向上のためアラート削除、必要ならToast等を実装
         };
 
         const getCardDisplay = (card, fontSize = "text-xl") => {
@@ -244,7 +244,6 @@
         };
 
         // --- Components ---
-        
         const Card = ({ card, type, index, villainIdx, size = "md", placeholder = "" }) => {
             const styles = size === "lg" 
                 ? "w-16 h-24 text-2xl" 
@@ -270,7 +269,7 @@
         const ActionButton = ({ label, active, onClick, colorClass = "bg-slate-800 text-slate-300" }) => (
             <button
                 onClick={onClick}
-                className={`px-3 py-2 rounded-lg text-xs font-bold border-b-4 transition-all active:scale-95 active:border-b-0 active:translate-y-1 shadow-lg shrink-0
+                className={`px-3 py-3 rounded-lg text-xs font-bold border-b-4 transition-all active:scale-95 active:border-b-0 active:translate-y-1 shadow-lg shrink-0 min-w-[60px]
                     ${active 
                         ? 'bg-yellow-500 border-yellow-700 text-yellow-900 translate-y-1 border-b-0' 
                         : `${colorClass} border-slate-900/50 hover:brightness-110`}`}
@@ -280,15 +279,15 @@
         );
 
         // --- Render ---
-
         if (view === 'history') {
             return (
                 <div className="h-[100dvh] bg-slate-900 text-slate-100 flex flex-col">
                     <header className="h-14 flex items-center px-4 bg-slate-800 border-b border-slate-700 shrink-0">
                         <button onClick={() => setView('table')} className="mr-4"><Icons.ArrowRight className="rotate-180" /></button>
-                        <h1 className="font-bold">History</h1>
+                        <h1 className="font-bold">履歴</h1>
                     </header>
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {hands.length === 0 && <div className="text-center text-slate-500 mt-10">履歴がありません</div>}
                         {hands.map(hand => (
                             <div key={hand.id} className="bg-slate-800 p-3 rounded-lg border border-slate-700">
                                 <div className="flex justify-between text-xs text-slate-400 mb-2">
@@ -304,16 +303,6 @@
                                          {hand.board.map((c,i) => c ? <div key={i} className="text-xs text-white">{c.rank}{c.suit}</div> : null)}
                                     </div>
                                 </div>
-                                <div className="space-y-1">
-                                    {hand.villains.map((v, idx) => (
-                                        <div key={idx} className="text-xs text-slate-300 bg-slate-900/30 p-1 rounded flex justify-between">
-                                            <span><span className="text-red-400 font-bold">{v.pos}</span></span>
-                                            <span className="text-slate-500">
-                                                Pre:{v.actions.pre || '-'} | F:{v.actions.flop || '-'} | T:{v.actions.turn || '-'} | R:{v.actions.river || '-'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         ))}
                     </div>
@@ -324,13 +313,22 @@
         const activeVillain = currentHand.villains[activeVillainIdx];
         const displayActions = gameStage === 'pre' ? PREFLOP_ACTIONS : POSTFLOP_ACTIONS;
 
+        // 日本語ラベルの取得
+        const getDealButtonLabel = () => {
+            if (gameStage === 'pre') return 'フロップを開く';
+            if (gameStage === 'flop') return 'ターンを開く';
+            if (gameStage === 'turn') return 'リバーを開く';
+            if (gameStage === 'river') return 'ショーダウン';
+            return '終了';
+        };
+
         return (
             <div className="h-[100dvh] w-full poker-felt flex flex-col relative overflow-hidden">
                 
                 {/* === UI HEADER === */}
                 <header className="h-12 flex justify-between items-center px-4 shrink-0 z-10 bg-black/30 backdrop-blur-sm">
                     <button onClick={() => setView('history')} className="p-2 bg-black/40 rounded-full text-white/70 active:scale-95"><Icons.Menu /></button>
-                    <div className="text-xs font-bold text-emerald-100/50 tracking-widest">MULTIWAY TABLE</div>
+                    <div className="text-xs font-bold text-emerald-100/50 tracking-widest">POKER RECORDER</div>
                     <button onClick={resetHand} className="p-2 bg-black/40 rounded-full text-red-300/80 active:scale-95"><Icons.RotateCcw /></button>
                 </header>
 
@@ -346,7 +344,7 @@
                                 <button
                                     key={idx}
                                     onClick={() => setActiveVillainIdx(idx)}
-                                    className={`px-3 py-1.5 rounded-t-lg text-xs font-bold transition-colors flex items-center gap-1
+                                    className={`px-4 py-2 rounded-t-lg text-xs font-bold transition-colors flex items-center gap-1 min-w-[80px] justify-center
                                         ${activeVillainIdx === idx 
                                             ? 'bg-red-900/80 text-white border-b-2 border-red-400' 
                                             : 'bg-black/40 text-slate-400 hover:bg-black/60'}`}
@@ -356,23 +354,23 @@
                             ))}
                             <button 
                                 onClick={addVillain}
-                                className="p-1.5 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 active:scale-90"
+                                className="p-2 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 active:scale-90"
                             >
-                                <Icons.Plus size={14} />
+                                <Icons.Plus size={16} />
                             </button>
                         </div>
 
                         {/* Active Villain Controls */}
                         <div className="flex flex-col gap-2 pl-1">
-                            {/* Position & Cards Row */}
+                            {/* Position & Cards */}
                             <div className="flex justify-between items-center">
-                                {/* Pos Select */}
-                                <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[50%]">
+                                {/* Pos Select - ボタンサイズ拡大 */}
+                                <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[60%] py-1">
                                     {POSITIONS.map(pos => (
                                         <button 
                                             key={pos}
                                             onClick={() => updateVillain(activeVillainIdx, { pos })}
-                                            className={`px-1.5 py-1 text-[10px] font-bold rounded shrink-0
+                                            className={`px-3 py-2 text-[10px] font-bold rounded shrink-0 min-w-[36px]
                                                 ${activeVillain.pos === pos ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-500'}`}
                                         >
                                             {pos}
@@ -390,9 +388,9 @@
                             <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1">
                                 {displayActions.map(act => (
                                     <ActionButton 
-                                        key={act} label={act} colorClass="bg-red-900/60 text-red-100 border-red-950"
-                                        active={activeVillain.actions[gameStage === 'showdown' ? 'river' : gameStage] === act}
-                                        onClick={() => updateVillainAction(activeVillainIdx, gameStage === 'showdown' ? 'river' : gameStage, act)}
+                                        key={act.id} label={act.label} colorClass="bg-red-900/60 text-red-100 border-red-950"
+                                        active={activeVillain.actions[gameStage === 'showdown' ? 'river' : gameStage] === act.id}
+                                        onClick={() => updateVillainAction(activeVillainIdx, gameStage === 'showdown' ? 'river' : gameStage, act.id)}
                                     />
                                 ))}
                             </div>
@@ -417,9 +415,9 @@
                         {gameStage !== 'showdown' && (
                             <button 
                                 onClick={advanceStage}
-                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)] active:scale-95 transition-all text-xs uppercase tracking-widest flex items-center gap-2 border border-emerald-400/50"
+                                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)] active:scale-95 transition-all text-sm flex items-center gap-2 border border-emerald-400/50"
                             >
-                                Deal {gameStage === 'pre' ? 'Flop' : gameStage === 'flop' ? 'Turn' : gameStage === 'turn' ? 'River' : 'Showdown'} <Icons.ArrowRight size={14} />
+                                {getDealButtonLabel()} <Icons.ArrowRight size={16} />
                             </button>
                         )}
                     </div>
@@ -427,44 +425,48 @@
                     {/* --- 3. HERO AREA (BOTTOM) --- */}
                     <div className="flex flex-col gap-2 pb-safe">
                         
-                        {/* Hero Controls Container */}
-                        <div className="bg-black/30 p-2 rounded-xl border border-white/5 backdrop-blur-sm flex flex-col gap-2">
-                             {/* Hero Pos */}
-                             <div className="flex gap-1 overflow-x-auto no-scrollbar">
+                        {/* Hero Controls - 位置調整: カードと分離 */}
+                        <div className="bg-black/30 p-2 rounded-xl border border-white/5 backdrop-blur-sm flex flex-col gap-2 mb-2">
+                             {/* Hero Pos - ボタンサイズ調整 */}
+                             <div className="flex gap-1 overflow-x-auto no-scrollbar py-1">
                                 {POSITIONS.map(pos => (
                                     <button 
                                         key={pos}
                                         onClick={() => setCurrentHand({...currentHand, heroPos: pos})}
-                                        className={`px-2 py-1 text-[10px] font-bold rounded shrink-0 ${currentHand.heroPos === pos ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                        className={`px-3 py-2 text-[10px] font-bold rounded shrink-0 min-w-[36px]
+                                            ${currentHand.heroPos === pos ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
                                     >
                                         {pos}
                                     </button>
                                 ))}
                             </div>
 
-                            {/* Hero Actions */}
+                            {/* Hero Actions - 日本語ラベル */}
                             <div className="flex gap-1 overflow-x-auto no-scrollbar">
                                 {displayActions.map(act => (
                                     <ActionButton 
-                                        key={act} label={act} colorClass="bg-indigo-900/60 text-indigo-100 border-indigo-950"
-                                        active={currentHand.heroActions[gameStage === 'showdown' ? 'river' : gameStage] === act}
-                                        onClick={() => updateHeroAction(gameStage === 'showdown' ? 'river' : gameStage, act)}
+                                        key={act.id} label={act.label} colorClass="bg-indigo-900/60 text-indigo-100 border-indigo-950"
+                                        active={currentHand.heroActions[gameStage === 'showdown' ? 'river' : gameStage] === act.id}
+                                        onClick={() => updateHeroAction(gameStage === 'showdown' ? 'river' : gameStage, act.id)}
                                     />
                                 ))}
                             </div>
                         </div>
 
-                        {/* Cards & Save */}
-                        <div className="flex items-end justify-center gap-4 w-full relative h-20">
-                            <div className="flex gap-2 transform -translate-y-1"> 
+                        {/* Cards & Save - 重なり解消のためコンテナを分離 */}
+                        <div className="flex items-center justify-between w-full px-4">
+                            <div className="w-12"></div> {/* Spacer for alignment */}
+                            
+                            <div className="flex gap-3"> 
                                 <Card type="hero" index={0} card={currentHand.heroHoleCards[0]} size="lg" />
                                 <Card type="hero" index={1} card={currentHand.heroHoleCards[1]} size="lg" />
                             </div>
+
                             <button 
                                 onClick={saveHand}
-                                className="absolute right-0 bottom-4 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white active:bg-blue-500 active:scale-90 transition-all z-10 border-2 border-blue-400"
+                                className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white active:bg-blue-500 active:scale-90 transition-all border-2 border-blue-400"
                             >
-                                <Icons.Save size={20} />
+                                <Icons.Save size={24} />
                             </button>
                         </div>
                     </div>
@@ -476,7 +478,7 @@
                     <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center select-none animate-[fadeIn_0.1s_ease-out]">
                         <div className="bg-slate-900 w-full max-w-md p-4 rounded-t-2xl border-t border-slate-700 pb-8">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-white font-bold text-lg">Select Card</h3>
+                                <h3 className="text-white font-bold text-lg">カード選択</h3>
                                 <button onClick={() => setActiveCardTarget(null)} className="p-2 bg-slate-800 rounded-full text-slate-400"><Icons.X /></button>
                             </div>
                             {!tempRank ? (
